@@ -1,4 +1,4 @@
-#include "BigInteger.cpp"
+#include "Test.h"
 #include <atomic>
 #include <chrono>
 #include <cmath>
@@ -15,10 +15,10 @@
 using namespace std;
 using namespace chrono;
 
-constexpr auto invaild_mode = "Invalid mode!!!\n";
-constexpr auto help_info = "\n[Commands]:\n/h  Get commands\n/m  Re-select mode\n/r  Turn on/off output result\n/q  Quit the program\n";
-constexpr auto mode_info = "1)Generate prime number list-1    2)Primality test    3)Factorization    4)Generate prime number list-2\n5)Eratosthenes sieve    6)Miller-Rabin    7)Debug-1    8)Debug-2\n";
-constexpr auto choose_mode_info = "\n[Select mode]:";
+const string invaild_mode = "Invalid mode!!!\n";
+const string help_info = "\n[Commands]:\n/h  Get commands\n/m  Re-select mode\n/r  Turn on/off output result\n/q  Quit the program\n";
+const string mode_info = "1)Generate prime number list-1    2)Primality test    3)Factorization    4)Generate prime number list-2\n5)Eratosthenes sieve    6)Miller-Rabin    7)Debug-1    8)Debug-2\n";
+const string choose_mode_info = "\n[Select mode]:";
 system_clock::time_point start_time;
 double used_time;
 bool restart = false;
@@ -30,13 +30,13 @@ typedef unsigned char uc;
 typedef long long ll;
 typedef long double ld;
 
-const ull millerrabin_prime[] = {2, 325, 9375, 28178, 450775, 9780504, 1795265022};
-const ull prime[] = {5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97};
+const ull millerrabin_prime[] = {2, 3, 5, 7, 11, 13, 17}; //{2, 325, 9375, 28178, 450775, 9780504, 1795265022};
+const ull prime[] = {3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97};
 atomic<ull> cnt(0);
 atomic<ull> it(0);
 const ull th_count = std::thread::hardware_concurrency();
 const ull delta = th_count * 6 - 2;
-
+mpz_t ZERO, ONE, TWO;
 class Bitslist64
 {
 public:
@@ -230,77 +230,6 @@ void PrimeList64(ull start, ull end)
     printf("\nThere are %llu prime numbers in total, and the calculation takes %.4f seconds\n", count, used_time);
 }
 
-bool isprime(ull num)
-{
-    ull i = 7;
-    const ull root = (ull)sqrt(num);
-    bool is_p = true;
-    if (num == 1) {
-        printf("1 is neither a prime nor a composite number\n");
-        return false;
-    }
-    // start_time = chrono::high_resolution_clock::now();
-
-    if (num != 2 and num % 2 == 0)
-        is_p = false;
-    else if (num != 3 and num % 3 == 0)
-        is_p = false;
-    else if (num != 5 and num % 5 == 0)
-        is_p = false;
-    else {
-        while (i <= root) {
-            if (num % i == 0) {
-                is_p = false;
-                break;
-            }
-            i += 4; // 7+4=11
-            if (num % i == 0) {
-                is_p = false;
-                break;
-            }
-            i += 2; // 11+2=13
-            if (num % i == 0) {
-                is_p = false;
-                break;
-            }
-            i += 4; // 13+4=17
-            if (num % i == 0) {
-                is_p = false;
-                break;
-            }
-            i += 2; // 17+2=19
-            if (num % i == 0) {
-                is_p = false;
-                break;
-            }
-            i += 4; // 19+4=23
-            if (num % i == 0) {
-                is_p = false;
-                break;
-            }
-            i += 6; // 23+6=29
-            if (num % i == 0) {
-                is_p = false;
-                break;
-            }
-            i += 2; // 29+2=31
-            if (num % i == 0) {
-                is_p = false;
-                break;
-            }
-            i += 6; // 31+6=37
-        }
-    }
-    if (is_p) {
-        // printf("YES\n");
-        return true;
-    } else {
-        // printf("NO\n");
-        return false;
-    }
-    // used_time = duration_cast<microseconds>(high_resolution_clock::now() - start_time).count() / 1000.0;
-    // printf("The calculation takes %.4f milliseconds\n", used_time);
-}
 inline ull qmul(ull a, ull b, ull mod) { return (__int128)a * b % mod; }
 
 inline ull qpow(ull a, ull n, ull mod)
@@ -373,48 +302,66 @@ void Miller_Rabin(ull n) // 判断素数
     return;
 }
 
-bool check_prime_gmp(const char *n)
+inline bool millerrabin(const mpz_t n, const mpz_t nm1, mpz_t exp, mpz_t p, uint t)
 {
-    mpz_t num, u, base, v, temp;
-    mpz_init_set_str(num, n, 10); // num = n
-    mpz_init(u);
-    mpz_init(base);
-    mpz_init(v);
-    mpz_init(temp);
-    for (ull p : prime) {
-        mpz_mod_ui(temp, num, p);
-        if (mpz_cmp_ui(temp, 0) == 0) // if(n % p == 0)
-            return mpz_cmp_ui(num, p) == 0;
+    mpz_powm(p, p, exp, n); // p = (p ^ exp) % n
+
+    if (mpz_cmp(p, ONE) == 0 or mpz_cmp(p, nm1) == 0) {
+        return true;
     }
-    mpz_sub_ui(u, num, 1); // u = num - 1
-    ull t = 0;
-    while (mpz_even_p(u)) {  // u % 2 == 0
-        mpz_div_ui(u, u, 2); // u = u / 2
-        t++;
+    mpz_t temp;
+    mpz_init(temp);
+    while (--t > 0) {
+        mpz_mul(temp, p, p); // p = (p * p) % n
+        mpz_mod(p, temp, n);
+        if (mpz_cmp(p, nm1) == 0) { // p == n - 1
+            mpz_clear(temp);
+            return true;
+        }
+    }
+    mpz_clear(temp);
+    return false;
+}
+
+bool isprime_gmp(const char *num)
+{
+    bool isp = true;
+    mpz_t n, p, temp;
+    mpz_init_set_str(n, num, 10); // num = n
+
+    mpz_init(p);
+    mpz_init(temp);
+
+    if (mpz_cmp_ui(n, 3) < 0 or mpz_even_p(n) == 1) {
+        return (mpz_cmp(n, TWO) == 0);
     }
 
-    // ull ud[] = {2, 325, 9375, 28178, 450775, 9780504, 1795265022};
-    for (ull a : millerrabin_prime) {
-    FLAG:
-        mpz_set_ui(base, a);
-        mpz_powm(v, base, u, num);                                 // v = qpow(a, u, n);
-        if (mpz_cmp_ui(v, 1) == 0 or mpz_cmp(v, u) == 0 or v == 0) // if (v == 1 or v == u or v == 0)
-            continue;
-        for (ull j = 1; j <= t; j++) {
-            mpz_mul(temp, v, v); // v = qmul(v, v, n)
-            mpz_mod(v, temp, num);
-            if (mpz_cmp(v, u) == 0 and j != t) { // if (v == u and j != t)
-                goto FLAG;
-                break;
-            }
-            if (mpz_cmp_ui(v, 1) == 0) // if (v == 1)
-                return false;
+    for (ull p1 : prime) {
+        mpz_set_ui(p, p1);
+        mpz_mod(temp, n, p);
+        if (mpz_cmp(temp, ZERO) == 0) {
+            mpz_clear(temp);
+            return (mpz_cmp(n, p) == 0);
         }
-        if (mpz_cmp_ui(v, 1) != 0) // if (v != 1)
-            return false;
     }
-    return true;
+
+    mpz_t nm1, m;
+    mpz_init(nm1);
+    mpz_init(m);
+    mpz_sub(nm1, n, ONE); // nm1 = n - 1
+    mpz_set(m, nm1);
+    uint e = 0;
+    while (mpz_even_p(m)) {    // u % 2 == 0
+        mpz_cdiv_q(m, m, TWO); // u = u / 2
+        e++;
+    }
+    for (ull p2 : millerrabin_prime) {
+        mpz_set_ui(p, p2);
+        isp = isp && millerrabin(n, nm1, m, p, e);
+    }
+    return isp;
 }
+
 inline bool check_prime(ull n)
 {
     if (n == 1) {
@@ -432,15 +379,18 @@ inline bool check_prime(ull n)
         ull v = qpow(a, u, n);
         if (v == 1 or v == n - 1 or v == 0)
             continue;
-        for (ull j = 1; j <= t; j++) {
+        for (ull j = 1; j < t; j++) {
             v = qmul(v, v, n);
-            if (v == n - 1 and j != t) {
+            if (v == n - 1) {
                 v = 1;
                 break;
             } // 出现一个n-1，后面都是1，直接跳出
             if (v == 1)
                 return 0; // 这里代表前面没有出现n-1这个解，二次检验失败
         }
+        v = qmul(v, v, n);
+        if (v == 1)
+            return 0;
         if (v != 1)
             return 0; // Fermat检验
     }
@@ -705,6 +655,29 @@ string get_argument_str(string message = "")
             restart = execute_command(entry);
             if (restart)
                 break; // 重新选择
+        } else if (entry[0] == 't') {
+            if (entry == "t1000")
+                return test1000;
+            else if (entry == "t500")
+                return test500;
+            else if (entry == "t400")
+                return test400;
+            else if (entry == "t300")
+                return test300;
+            else if (entry == "t200")
+                return test200;
+            else if (entry == "t100")
+                return test100;
+            else if (entry == "t50")
+                return test50;
+            else if (entry == "t40")
+                return test40;
+            else if (entry == "t30")
+                return test30;
+            else if (entry == "t20")
+                return test20;
+            else if (entry == "t10")
+                return test10;
         } else {
             for (uint i = 0; i < entry.size(); i++) {
                 if (entry.at(i) < '0' or entry.at(i) > '9')
@@ -718,9 +691,19 @@ string get_argument_str(string message = "")
     return "";
 }
 
+bool gmp_miller(string num)
+{
+    mpz_t n;
+    mpz_init_set_str(n, num.c_str(), 10);
+    return mpz_probab_prime_p(n, 50) > 0;
+}
+
 int main()
 {
     string entry;
+    mpz_init_set_ui(ZERO, 0);
+    mpz_init_set_ui(ONE, 1);
+    mpz_init_set_ui(TWO, 2);
     printf("============================\n=Welcome to this calculator=\n============================\n");
     cout << help_info << choose_mode_info << mode_info;
     while (1) {
@@ -733,7 +716,6 @@ int main()
                 continue;                 // 重新选择
         } else if (entry.length() == 1) { // 如果字符串长度为1
             ull arg1 = 0, arg2 = 0;
-            UPmath::BigInteger heihiehie;
             switch (entry[0]) {
             case '1': // 模式1，生成质数序列
                 printf("[Current mode]: Generate prime number list-1\n");
@@ -755,7 +737,7 @@ int main()
                 if (restart)
                     break; // 重新选择
                 start_time = high_resolution_clock::now();
-                t1 = isprime(arg1);
+                t1 = check_prime(arg1);
                 output(1);
                 if (t1)
                     printf("YES\n");
@@ -800,12 +782,17 @@ int main()
                 break;
 
             case '6': // 模式6，米勒-卡宾素性检测
-                printf("[Current mode]: Miller-Rabin \n");
-                arg1 = get_argument("Please enter a positive integer: ");
+                printf("[Current mode]: Miller-Rabin\n");
+                entry = get_argument_str("Please enter a positive integer: ");
                 if (restart)
                     break; // 重新选择
-
-                Miller_Rabin(arg1);
+                start_time = high_resolution_clock::now();
+                t1 = isprime_gmp(entry.c_str());
+                output(1);
+                if (t1)
+                    printf("YES\n");
+                else
+                    printf("NO\n");
                 cout << choose_mode_info;
                 break;
 
@@ -815,7 +802,7 @@ int main()
                 if (restart)
                     break; // 重新选择
                 start_time = high_resolution_clock::now();
-                t1 = check_prime_gmp(entry.c_str());
+                t1 = isprime_gmp(entry.c_str());
                 output(1);
                 if (t1)
                     printf("YES\n");
@@ -831,8 +818,7 @@ int main()
                 if (restart)
                     break; // 重新选择
                 start_time = high_resolution_clock::now();
-                heihiehie = UPmath::BigInteger(entry);
-                t1 = heihiehie.weakerBailliePSWPrimeTest();
+                t1 = gmp_miller(entry);
                 output(1);
                 if (t1)
                     printf("YES\n");
