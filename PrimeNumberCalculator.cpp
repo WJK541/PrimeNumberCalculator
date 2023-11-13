@@ -1064,23 +1064,18 @@ int main()
 
             case '7': // mode-7, debug-1
                 printf("[Current mode]: Debug-1\n");
-                arg1 = get_argument("Please enter a positive integer: ");
-
+                arg1 = get_argument("Please enter the starting value: ");
                 if (restart)
                     break; // 重新选择
-                /*
-                start_time = high_resolution_clock::now();
-                t1 = lucas(arg1);
-                output(1);
-                if (t1)
-                    printf("YES\n");
-                else
-                    printf("NO\n");
-                */
-                for (arg2 = 3; arg2 < arg1; arg2 += 2) {
-                    t1 = (lucas(arg2) == gmp_miller(arg2));
+
+                arg2 = get_argument("Please enter the end value: ");
+                if (restart)
+                    break; // 重新选择
+
+                for (arg1 = arg1 | 1; arg1 < arg2; arg1 += 2) {
+                    t1 = ((strongPrimalityTest(arg1) > 0) == gmp_miller(arg1));
                     if (not t1)
-                        cout << arg2 << '\n';
+                        cout << arg1 << '\n';
                 }
 
                 cout << choose_mode_info;
