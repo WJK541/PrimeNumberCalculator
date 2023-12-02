@@ -14,6 +14,8 @@
 #define min(x, y) (((x) < (y)) ? (x) : (y))
 #define absmod(x, y) (((x % y) + y) % y)
 #define qmul(x, y, mod) (((__int128)x * y) % mod)
+//#define START_TIMING auto start_time = chrono::steady_clock::now();
+//#define END_TIMING 
 
 using namespace std;
 using namespace chrono;
@@ -57,7 +59,7 @@ private:
 Bitslist64::Bitslist64(ull n, bool init)
 {
     if (n == 0)
-        throw "n must be positive integer!";
+        throw runtime_error("n must be positive integer!");
 
     length = ((n - 1) >> 3) + 1;
     list = new char[length];
@@ -130,7 +132,7 @@ void mbe_sieve(ull n)
         printf("\nThere are 0 prime numbers in total, and the calculation takes 0.0000 seconds\n");
         return;
     }
-    auto start_time = chrono::high_resolution_clock::now(); // 开始计时
+    auto start_time = chrono::steady_clock::now(); // 开始计时
 
     const ull S = 524288;
     vector<ull> primes;
@@ -165,7 +167,7 @@ void mbe_sieve(ull n)
 
     result += (ull)cnt;
     result++; // 把2加进去
-    used_time = duration_cast<milliseconds>(high_resolution_clock::now() - start_time).count() / 1000.0;
+    used_time = duration_cast<milliseconds>(steady_clock::now() - start_time).count() / 1000.0;
     printf("\nThere are %llu prime numbers in total, and the calculation takes %.4f seconds\n", result, used_time);
     // delete[] primes;
     delete[] threads;
@@ -267,7 +269,7 @@ inline void output(int mode = 0)
         printf("The calculation takes %.4f milliseconds\n", used_time);
     }
 }
-void Miller_Rabin(ull n) // 判断素数
+void Miller_Rabin(ull n)
 {
     start_time = chrono::high_resolution_clock::now();
     if (n < 3 or n % 2 == 0) {
@@ -295,7 +297,7 @@ void Miller_Rabin(ull n) // 判断素数
             if (v == n - 1 and j != t) {
                 v = 1;
                 break;
-            } // 出现一个n-1，后面都是1，直接跳出
+            }
             if (v == 1) {
                 printf("NO\n");
                 output(1);
