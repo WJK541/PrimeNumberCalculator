@@ -1,4 +1,4 @@
-#include "Test.h"
+#include "head.cpp"
 #include <assert.h>
 #include <atomic>
 #include <chrono>
@@ -14,8 +14,8 @@
 #define min(x, y) (((x) < (y)) ? (x) : (y))
 #define absmod(x, y) (((x % y) + y) % y)
 #define qmul(x, y, mod) (((__int128)x * y) % mod)
-//#define START_TIMING auto start_time = chrono::steady_clock::now();
-//#define END_TIMING 
+// #define START_TIMING auto start_time = chrono::steady_clock::now();
+// #define END_TIMING
 
 using namespace std;
 using namespace chrono;
@@ -25,7 +25,7 @@ const string help_info = "\n[Commands]:\n/h  Get commands\n/m  Re-select mode\n/
 const string mode_info = "1)Generate prime number list-1    2)Primality test    3)Factorization    4)Generate prime number list-2\n5)Eratosthenes sieve    6)Miller-Rabin    7)Debug-1    8)Debug-2\n";
 const string choose_mode_info = "\n[Select mode]:";
 system_clock::time_point start_time;
-double used_time;
+double elapsed_time;
 bool restart = false;
 bool print_res = false;
 
@@ -42,67 +42,6 @@ atomic<ull> it(0);
 const ull th_count = std::thread::hardware_concurrency();
 const ull delta = th_count * 6 - 2;
 mpz_t ZERO, ONE, TWO;
-class Bitslist64
-{
-public:
-    Bitslist64(ull n, bool init);
-    ~Bitslist64();
-    inline bool at(ull index);
-    inline void setfalse(ull index);
-    inline void settrue(ull index);
-    void reset(bool a);
-
-private:
-    char *list;
-    ull length;
-};
-Bitslist64::Bitslist64(ull n, bool init)
-{
-    if (n == 0)
-        throw runtime_error("n must be positive integer!");
-
-    length = ((n - 1) >> 3) + 1;
-    list = new char[length];
-    if (init == true) {
-        for (ull i = 0; i < length; i++)
-            list[i] = (char)0xff;
-    } else {
-        for (ull i = 0; i < length; i++)
-            list[i] = (char)0x00;
-    }
-}
-Bitslist64::~Bitslist64()
-{
-    delete[] list;
-}
-inline bool Bitslist64::at(ull n)
-{
-    ull shang = n >> 3;
-    ull yushu = n & 7;
-    return (list[shang] & (1 << yushu));
-}
-inline void Bitslist64::setfalse(ull n)
-{
-    ull shang = n >> 3;
-    ull yushu = n & 7;
-    list[shang] = list[shang] & (~(1 << yushu));
-}
-inline void Bitslist64::settrue(ull n)
-{
-    ull shang = n >> 3;
-    ull yushu = n & 7;
-    list[shang] = list[shang] | (1 << yushu);
-}
-void Bitslist64::reset(bool a)
-{
-    if (a == true) {
-        for (ull i = 0; i < length; i++)
-            list[i] = (char)0xff;
-    } else {
-        for (ull i = 0; i < length; i++)
-            list[i] = (char)0x00;
-    }
-}
 
 void primelist(vector<ull> *primes, ull n, ull count)
 {
@@ -167,8 +106,8 @@ void mbe_sieve(ull n)
 
     result += (ull)cnt;
     result++; // 把2加进去
-    used_time = duration_cast<milliseconds>(steady_clock::now() - start_time).count() / 1000.0;
-    printf("\nThere are %llu prime numbers in total, and the calculation takes %.4f seconds\n", result, used_time);
+    elapsed_time = duration_cast<milliseconds>(steady_clock::now() - start_time).count() / 1000.0;
+    printf("\nThere are %llu prime numbers in total, and the calculation takes %.4f seconds\n", result, elapsed_time);
     // delete[] primes;
     delete[] threads;
     cnt = 0;
@@ -176,63 +115,31 @@ void mbe_sieve(ull n)
 }
 void PrimeList64(ull start, ull end)
 {
-    if (start > end) {
-        printf("The START cannot be greater than the END!!!\n");
-        return;
-    }
-    if (start == end and start == 1) {
-        printf("Within the range of [1, 1], There are 0 prime numbers in total\n");
-        return;
-    }
-    auto start_time = chrono::high_resolution_clock::now(); // 开始计时
-
     ull i, j, root = (ull)sqrt(end) + 1, count = 1;
     Bitslist64 is_prime((end - 1) / 2, true);
-    printf("Within the range of [%llu, %llu], ", start, end);
-    start = max(3, start); // 起始值
-    if (print_res) {
-        printf("there are prime numbers:\n2 ");
-        for (i = 3; i < start; i += 2) {
-            if (is_prime.at(i >> 1)) {
-                for (j = i * i; j <= end; j += i << 1)
-                    is_prime.setfalse(j >> 1);
-            }
-        }
-        for (i = start; i < root; i += 2) {
-            if (is_prime.at(i >> 1)) {
-                count++;
-                printf("%llu ", i);
-                for (j = i * i; j <= end; j += i << 1)
-                    is_prime.setfalse(j >> 1);
-            }
-        }
-        for (i = max(root, start) | 1; i <= end; i += 2) {
-            if (is_prime.at(i >> 1)) {
-                count++;
-                printf("%llu ", i);
-            }
-        }
-    } else {
-        for (i = 3; i < start; i += 2) {
-            if (is_prime.at(i >> 1)) {
-                for (j = i * i; j <= end; j += i << 1)
-                    is_prime.setfalse(j >> 1);
-            }
-        }
-        for (i = start; i < root; i += 2) {
-            if (is_prime.at(i >> 1)) {
-                count++;
-                for (j = i * i; j <= end; j += i << 1)
-                    is_prime.setfalse(j >> 1);
-            }
-        }
-        for (i = max(root, start) | 1; i <= end; i += 2) {
-            if (is_prime.at(i >> 1))
-                count++;
+    start = max(3, start);
+    vector<ull> primes;
+    primes.reserve((end / (log(end - 1.1))) - (start / (log(start - 1.1))));
+    for (i = 3; i < start; i += 2) {
+        if (is_prime.at(i >> 1)) {
+            for (j = i * i; j <= end; j += i << 1)
+                is_prime.setfalse(j >> 1);
         }
     }
-    used_time = duration_cast<milliseconds>(high_resolution_clock::now() - start_time).count() / 1000.0;
-    printf("\nThere are %llu prime numbers in total, and the calculation takes %.4f seconds\n", count, used_time);
+    for (i = start; i < root; i += 2) {
+        if (is_prime.at(i >> 1)) {
+            count++;
+            primes.push_back(i);
+            for (j = i * i; j <= end; j += i << 1)
+                is_prime.setfalse(j >> 1);
+        }
+    }
+    for (i = max(root, start) | 1; i <= end; i += 2) {
+        if (is_prime.at(i >> 1)) {
+            count++;
+            primes.push_back(i);
+        }
+    }
 }
 
 inline ull qpow(ull base, ull exp, ull mod)
@@ -260,13 +167,13 @@ inline ll qpow(ll base, ll exp, ll mod)
 inline void output(int mode = 0)
 {
     if (mode == 0) {
-        used_time = duration_cast<milliseconds>(high_resolution_clock::now() - start_time).count() / 1000.0;
-        printf("The calculation takes %.4f seconds\n", used_time);
+        elapsed_time = duration_cast<milliseconds>(high_resolution_clock::now() - start_time).count() / 1000.0;
+        printf("The calculation takes %.4f seconds\n", elapsed_time);
         return;
     }
     if (mode == 1) {
-        used_time = duration_cast<microseconds>(high_resolution_clock::now() - start_time).count() / 1000.0;
-        printf("The calculation takes %.4f milliseconds\n", used_time);
+        elapsed_time = duration_cast<microseconds>(high_resolution_clock::now() - start_time).count() / 1000.0;
+        printf("The calculation takes %.4f milliseconds\n", elapsed_time);
     }
 }
 void Miller_Rabin(ull n)
@@ -730,8 +637,8 @@ void primelist_multithread(ull start, ull end)
     for (i = 0; i < th_count; i++)
         threads[i].join();
 
-    used_time = duration_cast<milliseconds>(high_resolution_clock::now() - start_time).count() / 1000.0;
-    printf("\nThere are %llu prime numbers in total, and the calculation takes %.4f seconds\n", (ull)cnt, used_time);
+    elapsed_time = duration_cast<milliseconds>(high_resolution_clock::now() - start_time).count() / 1000.0;
+    printf("\nThere are %llu prime numbers in total, and the calculation takes %.4f seconds\n", (ull)cnt, elapsed_time);
     cnt = 0;
     delete[] threads;
 }
@@ -833,8 +740,8 @@ void factorize(ull n)
         } else
             indices++;
     }
-    used_time = duration_cast<microseconds>(high_resolution_clock::now() - start_time).count() / 1000.0;
-    printf("The calculation takes %.4f milliseconds\n", used_time);
+    elapsed_time = duration_cast<microseconds>(high_resolution_clock::now() - start_time).count() / 1000.0;
+    printf("The calculation takes %.4f milliseconds\n", elapsed_time);
 }
 
 bool execute_command(string command)
@@ -908,29 +815,8 @@ string get_argument_str(string message = "")
             restart = execute_command(entry);
             if (restart)
                 break; // 重新选择
-        } else if (entry[0] == 't') {
-            if (entry == "t1000")
-                return test1000;
-            else if (entry == "t500")
-                return test500;
-            else if (entry == "t400")
-                return test400;
-            else if (entry == "t300")
-                return test300;
-            else if (entry == "t200")
-                return test200;
-            else if (entry == "t100")
-                return test100;
-            else if (entry == "t50")
-                return test50;
-            else if (entry == "t40")
-                return test40;
-            else if (entry == "t30")
-                return test30;
-            else if (entry == "t20")
-                return test20;
-            else if (entry == "t10")
-                return test10;
+        } else if (test_set.find(entry) != test_set.end()) {
+            return test_set[entry];
         } else {
             for (uint i = 0; i < entry.size(); i++) {
                 if (entry.at(i) < '0' or entry.at(i) > '9')
@@ -1043,13 +929,9 @@ int main()
                 arg1 = get_argument("Please enter a positive integer: ");
                 if (restart)
                     break; // 重新选择
-                start_time = high_resolution_clock::now();
-                t1 = strongPrimalityTest(arg1) > 0;
-                output(1);
-                if (t1)
-                    printf("YES\n");
-                else
-                    printf("NO\n");
+
+                mbe_sieve(arg1);
+
                 cout << choose_mode_info;
                 break;
 
