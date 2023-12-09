@@ -1,24 +1,4 @@
-#include "head.cpp"
-#include <assert.h>
-#include <atomic>
-#include <chrono>
-#include <cmath>
-#include <gmpxx.h>
-#include <iostream>
-#include <stdio.h>
-#include <string>
-#include <thread>
-#include <vector>
-
-#define max(x, y) (((x) > (y)) ? (x) : (y))
-#define min(x, y) (((x) < (y)) ? (x) : (y))
-#define absmod(x, y) (((x % y) + y) % y)
-#define qmul(x, y, mod) (((__int128)x * y) % mod)
-// #define START_TIMING auto start_time = chrono::steady_clock::now();
-// #define END_TIMING
-
-using namespace std;
-using namespace chrono;
+#include "head.h"
 
 const string invaild_mode = "Invalid mode!!!\n";
 const string help_info = "\n[Commands]:\n/h  Get commands\n/m  Re-select mode\n/r  Turn on/off output result\n/q  Quit the program\n";
@@ -29,19 +9,12 @@ double elapsed_time;
 bool restart = false;
 bool print_res = false;
 
-typedef unsigned int uint;
-typedef unsigned long long ull;
-typedef unsigned char uc;
-typedef long long ll;
-typedef long double ld;
-
-const ull millerrabin_prime[] = {2, 3, 5, 7, 11, 13, 17}; //{2, 325, 9375, 28178, 450775, 9780504, 1795265022};
-const ull prime[] = {2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97};
 atomic<ull> cnt(0);
 atomic<ull> it(0);
 const ull th_count = std::thread::hardware_concurrency();
 const ull delta = th_count * 6 - 2;
 mpz_t ZERO, ONE, TWO;
+
 
 void primelist(vector<ull> *primes, ull n, ull count)
 {
@@ -65,14 +38,8 @@ void primelist(vector<ull> *primes, ull n, ull count)
     }
     cnt.store((ull)cnt + result);
 }
-void mbe_sieve(ull n)
-{ // multithreading blocked Eratosthenes sieve
-    if (n == 1) {
-        printf("\nThere are 0 prime numbers in total, and the calculation takes 0.0000 seconds\n");
-        return;
-    }
-    auto start_time = chrono::steady_clock::now(); // 开始计时
-
+void MTBEratosthenesSieve(ull n)
+{ // multithreaded blocked Eratosthenes sieve
     const ull S = 524288;
     vector<ull> primes;
     ull nsqrt = (ull)sqrt(n), count = 0, result = 0, i, j, p;
@@ -105,21 +72,18 @@ void mbe_sieve(ull n)
         threads[i].join();
 
     result += (ull)cnt;
-    result++; // 把2加进去
-    elapsed_time = duration_cast<milliseconds>(steady_clock::now() - start_time).count() / 1000.0;
-    printf("\nThere are %llu prime numbers in total, and the calculation takes %.4f seconds\n", result, elapsed_time);
-    // delete[] primes;
+    result++;
     delete[] threads;
     cnt = 0;
     it = 0;
 }
-void PrimeList64(ull start, ull end)
+vector<ull> *PrimeList64(ull start, ull end)
 {
     ull i, j, root = (ull)sqrt(end) + 1, count = 1;
     Bitslist64 is_prime((end - 1) / 2, true);
     start = max(3, start);
-    vector<ull> primes;
-    primes.reserve((end / (log(end - 1.1))) - (start / (log(start - 1.1))));
+    vector<ull> *primes;
+    primes->reserve((end / (log(end - 1.1))) - (start / (log(start - 1.1))));
     for (i = 3; i < start; i += 2) {
         if (is_prime.at(i >> 1)) {
             for (j = i * i; j <= end; j += i << 1)
@@ -129,7 +93,7 @@ void PrimeList64(ull start, ull end)
     for (i = start; i < root; i += 2) {
         if (is_prime.at(i >> 1)) {
             count++;
-            primes.push_back(i);
+            primes->push_back(i);
             for (j = i * i; j <= end; j += i << 1)
                 is_prime.setfalse(j >> 1);
         }
@@ -137,33 +101,12 @@ void PrimeList64(ull start, ull end)
     for (i = max(root, start) | 1; i <= end; i += 2) {
         if (is_prime.at(i >> 1)) {
             count++;
-            primes.push_back(i);
+            primes->push_back(i);
         }
     }
+    return primes;
 }
 
-inline ull qpow(ull base, ull exp, ull mod)
-{
-    ull res = 1;
-    while (exp) {
-        if (exp & 1)
-            res = qmul(res, base, mod);
-        base = qmul(base, base, mod);
-        exp >>= 1;
-    }
-    return res;
-}
-inline ll qpow(ll base, ll exp, ll mod)
-{
-    ll res = 1;
-    while (exp) {
-        if (exp & 1)
-            res = qmul(res, base, mod);
-        base = qmul(base, base, mod);
-        exp >>= 1;
-    }
-    return res;
-}
 inline void output(int mode = 0)
 {
     if (mode == 0) {
@@ -176,25 +119,13 @@ inline void output(int mode = 0)
         printf("The calculation takes %.4f milliseconds\n", elapsed_time);
     }
 }
-void Miller_Rabin(ull n)
+bool Miller_Rabin(ull n)
 {
-    start_time = chrono::high_resolution_clock::now();
-    if (n < 3 or n % 2 == 0) {
-        if (n == 2) {
-            printf("YES\n");
-            output(1);
-            return;
-        }
-        printf("NO\n");
-        output(1);
-        return;
-    }
     ull u = n - 1, t = 0;
     while (u % 2 == 0) {
         u >>= 1;
         t++;
     }
-
     for (ull a : millerrabin_prime) {
         ull v = qpow(a, u, n);
         if (v == 1 or v == n - 1 or v == 0)
@@ -206,20 +137,14 @@ void Miller_Rabin(ull n)
                 break;
             }
             if (v == 1) {
-                printf("NO\n");
-                output(1);
-                return;
+                return false;
             }
         }
         if (v != 1) {
-            printf("NO\n");
-            output(1);
-            return;
+            return false;
         }
     }
-    printf("YES\n");
-    output(1);
-    return;
+    return true;
 }
 
 inline bool millerrabin(const mpz_t n, const mpz_t nm1, mpz_t exp, mpz_t p, uint t)
@@ -282,37 +207,11 @@ bool isprime_gmp(ll num)
     return isp;
 }
 
-inline ll jacobi(ll a, ll n)
-{
-    a = a % n;
-    ll t = 1;
-    ll r, temp;
-    while (a != 0) {
-        while (a % 2 == 0) {
-            a /= 2;
-            r = n % 8;
-            if (r == 3 || r == 5) {
-                t = -t;
-            }
-        }
-        temp = n % a;
-        n = a;
-        a = temp;
-        if (a % 4 == 3 && n % 4 == 3) {
-            t = -t;
-        }
-        a = a % n;
-    }
-    if (n == 1)
-        return t;
-    else
-        return 0;
-}
 int _JacobiSymbolImpl(ll numerator, ll denominator);
 int JacobiSymbol(ll upperArgument, ll lowerArgument)
 {
     if (lowerArgument % 2 == 0 or lowerArgument < 0)
-        throw std::logic_error("lowerArgument of function `JacobiSymbol` must be a positive odd number.");
+        throw logic_error("lowerArgument of function `JacobiSymbol` must be a positive odd number.");
     ll denominator = lowerArgument;
     ll numerator = upperArgument;
     if (numerator < 0) {
@@ -344,7 +243,7 @@ int _JacobiSymbolImpl(ll numerator, ll denominator)
     return ret * _JacobiSymbolImpl(denominator, numerator);
 }
 
-ll lucassequence(ll num, ll D)
+bool lucassequence(ll num, ll D)
 {
     ll P, Q, Q_k, Q_2k, V_k, V_2k, U_k, U_2k, n;
 
@@ -374,15 +273,10 @@ ll lucassequence(ll num, ll D)
          << D << '\n'; //*/
     ll a = 1;
     for (auto i = bit.end() - 2; i >= bit.begin(); i--) {
-        // 下标×2
-        // cout << ", bit(i)=" << *i << '\n';
-        // cout << "x2 ";
         Q_2k = ((__int128_t)Q_k * Q_k) % num;
 
         U_2k = ((__int128_t)U_k * V_k) % num;
-        // U_2k = qmul(U_k, V_k, num);
         V_2k = ((__int128_t)V_k * V_k - 2 * Q_k) % num;
-        // V_2k = ((__int128_t)V_k * V_k - qpow(Q, a, num) * 2) % (num);
         a *= 2;
         /*
         cout << "U" << a << ": " << U_2k << "\n";
@@ -423,7 +317,6 @@ ll getD(ll n)
         if (g != 1 or g != -1)
             return 0;
 
-        // if (gmp_jacobi(ds, n) == -1)
         if (JacobiSymbol(ds, n) == -1)
             return ds;
 
@@ -435,14 +328,14 @@ ll getD_debug(ll n)
 {
     ll D = 5;
     ll s = 1;
-    ll ds;
+    ll ds, g;
     int j;
     for (;;) {
         ds = D * s;
-        if (__gcd(ds, n) > 1)
+        g = __gcd(ds, n);
+        if (g != 1 or g != -1)
             return 0;
 
-        // if (gmp_jacobi(ds, n) == -1)
         j = JacobiSymbol(ds, n);
         cout << D << ": " << j << '\n';
         if (j == -1)
@@ -457,7 +350,7 @@ bool lucas(ll n)
      for (ll p : prime) {
          if (n % p == 0)
              return n == p;
-     }*/
+     }
     ll D = 5;
     ll s = 1;
     ll ds, g;
@@ -472,8 +365,8 @@ bool lucas(ll n)
 
         D += 2;
         s = -s;
-    }
-    return lucassequence(n, ds);
+    }*/
+    return lucassequence(n, getD_debug(n));
 }
 
 /*
@@ -930,7 +823,7 @@ int main()
                 if (restart)
                     break; // 重新选择
 
-                mbe_sieve(arg1);
+                MTBEratosthenesSieve(arg1);
 
                 cout << choose_mode_info;
                 break;
@@ -967,12 +860,12 @@ int main()
 
             case '8': // mode-8，debug-2
                 printf("[Current mode]: Debug-2\n");
-                entry = get_argument_str("Please enter a positive integer: ");
+                arg1 = get_argument("Please enter a positive integer: ");
 
                 if (restart)
                     break; // 重新选择
                 start_time = high_resolution_clock::now();
-                t1 = gmp_miller_str(entry);
+                t1 = lucas(arg1);
                 output(1);
                 if (t1)
                     printf("YES\n");

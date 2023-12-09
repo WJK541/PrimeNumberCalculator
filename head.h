@@ -1,12 +1,33 @@
 #pragma once
-#include <string>
+#include <assert.h>
+#include <atomic>
+#include <chrono>
+#include <cmath>
+#include <gmpxx.h>
+#include <iostream>
 #include <map>
+#include <stdio.h>
+#include <string>
+#include <thread>
+#include <vector>
+
+#define max(x, y) (((x) > (y)) ? (x) : (y))
+#define min(x, y) (((x) < (y)) ? (x) : (y))
+#define qmul(x, y, mod) (((__int128)x * y) % mod)
+// #define START_TIMING auto start_time = chrono::steady_clock::now();
+// #define END_TIMING
+
+using namespace std;
+using namespace chrono;
 
 typedef unsigned int uint;
 typedef unsigned long long ull;
 typedef unsigned char uc;
 typedef long long ll;
 typedef long double ld;
+
+const ull millerrabin_prime[] = {2, 325, 9375, 28178, 450775, 9780504, 1795265022};
+const ull prime[] = {2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97};
 
 std::map<std::string, const std::string> test_set = {
     {"test1000", "111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111991"},
@@ -21,6 +42,7 @@ std::map<std::string, const std::string> test_set = {
     {"test20", "11111111111111111131"},
     {"test10", "1111111121"},
 };
+
 class Bitslist64
 {
 public:
@@ -81,4 +103,52 @@ void Bitslist64::reset(bool a)
         for (ull i = 0; i < length; i++)
             list[i] = (char)0x00;
     }
+}
+
+inline ull qpow(ull base, ull exp, ull mod)
+{
+    ull res = 1;
+    while (exp) {
+        if (exp & 1)
+            res = qmul(res, base, mod);
+        base = qmul(base, base, mod);
+        exp >>= 1;
+    }
+    return res;
+}
+inline ll qpow(ll base, ll exp, ll mod)
+{
+    ll res = 1;
+    while (exp) {
+        if (exp & 1)
+            res = qmul(res, base, mod);
+        base = qmul(base, base, mod);
+        exp >>= 1;
+    }
+    return res;
+}
+inline ll absmod(ll x, ll mod)
+{
+    x %= mod;
+    if (x > 0)
+        return x;
+    return x + mod;
+}
+
+bool TrialAndError(ull n)
+{
+    /*
+    this function can only test Pseudoprime Number
+    */
+    for (ull p : prime) {
+        if (n % p == 0)
+            return n == p;
+    }
+    return true;
+}
+
+bool MillerRabin(ull n)
+{
+    ;
+    
 }
