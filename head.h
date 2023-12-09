@@ -150,5 +150,5 @@ bool TrialAndError(ull n)
 bool MillerRabin(ull n)
 {
     ;
-    
+    return true;
 }
