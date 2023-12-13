@@ -1,134 +1,11 @@
 #include "head.h"
 
 const string invaild_mode = "Invalid mode!!!\n";
-const string help_info = "\n[Commands]:\n/h  Get commands\n/m  Re-select mode\n/r  Turn on/off output result\n/q  Quit the program\n";
+const string help_info = "\n[Commands]:\n/h  Get commands\n/m  Re-select mode\n/q  Quit the program\n";
 const string mode_info = "1)Generate prime number list-1    2)Primality test    3)Factorization    4)Generate prime number list-2\n5)Eratosthenes sieve    6)Miller-Rabin    7)Debug-1    8)Debug-2\n";
 const string choose_mode_info = "\n[Select mode]:";
-system_clock::time_point start_time;
-double elapsed_time;
+
 bool restart = false;
-bool print_res = false;
-
-atomic<ull> it(0);
-atomic<ull> cnt(0);
-mpz_t ZERO, ONE, TWO;
-
-void primelist(vector<ull> *primes, ull n, ull count)
-{
-    const ull S = 524288;
-    ull i, j, k, l, start, p;
-    Bitslist64 is_prime(S >> 1, true);
-    for (k = (++it); k * S <= n; k = (++it)) {
-        start = k * S;
-        is_prime.reset(true);
-        for (l = 0; l < count; l++) {
-            p = (*primes)[l];
-            for (j = max(((start + p - 1) / p) | 1, p) * p - start; j < S; j += p << 1)
-                is_prime.setfalse(j >> 1);
-        }
-        for (i = 1; i < S and start + i <= n; i += 2) {
-            if (is_prime.at(i >> 1)) {
-                primes->push_back(i);
-            }
-        }
-    }
-}
-vector<ull> MTBEratosthenesSieve(ull n)
-{ // multithreaded blocked Eratosthenes sieve
-    const ull S = 524288;
-    vector<ull> primes;
-    ull nsqrt = (ull)sqrt(n), count = 0, i, j, p;
-    Bitslist64 is_prime0((nsqrt >> 1) + 1, true);
-    for (i = 3; i <= nsqrt; i += 2) {
-        if (is_prime0.at(i >> 1)) {
-            primes.push_back(i);
-            for (j = i * i; j <= nsqrt; j += i << 1)
-                is_prime0.setfalse(j >> 1);
-        }
-    }
-    Bitslist64 is_prime(S >> 1, true);
-    for (i = 0; i < count; i++) {
-        p = primes[i];
-        for (j = p * p; j < S; j += p << 1)
-            is_prime.setfalse(j >> 1);
-    }
-    for (i = 3; i < S and i <= n; i += 2) {
-        if (is_prime.at(i >> 1)) {
-            primes.push_back(i);
-            // printf("%u ", i);
-        }
-    }
-    vector<thread> threads;
-    for (i = 0; i < th_count; i++)
-        threads.push_back(thread(primelist, &primes, n, count));
-
-    for (i = 0; i < th_count; i++)
-        threads[i].join();
-
-    cnt = 0;
-    it = 0;
-    return primes;
-}
-
-inline bool millerrabin(const mpz_t n, const mpz_t nm1, mpz_t exp, mpz_t p, uint t)
-{
-    mpz_powm(p, p, exp, n); // p = (p ^ exp) % n
-
-    if (mpz_cmp(p, ONE) == 0 or mpz_cmp(p, nm1) == 0) {
-        return true;
-    }
-    mpz_t temp;
-    mpz_init(temp);
-    while (--t > 0) {
-        mpz_mul(temp, p, p); // p = (p * p) % n
-        mpz_mod(p, temp, n);
-        if (mpz_cmp(p, nm1) == 0) { // p == n - 1
-            mpz_clear(temp);
-            return true;
-        }
-    }
-    mpz_clear(temp);
-    return false;
-}
-
-bool isprime_gmp(ll num)
-{
-    bool isp = true;
-    mpz_t n, p, temp;
-    mpz_init_set_ui(n, num); // num = n
-
-    mpz_init(p);
-    mpz_init(temp);
-
-    if (mpz_cmp_ui(n, 3) < 0 or mpz_even_p(n) == 1) {
-        return (mpz_cmp(n, TWO) == 0);
-    }
-
-    for (ull p1 : prime) {
-        mpz_set_ui(p, p1);
-        mpz_mod(temp, n, p);
-        if (mpz_cmp(temp, ZERO) == 0) {
-            mpz_clear(temp);
-            return (mpz_cmp(n, p) == 0);
-        }
-    }
-
-    mpz_t nm1, m;
-    mpz_init(nm1);
-    mpz_init(m);
-    mpz_sub(nm1, n, ONE); // nm1 = n - 1
-    mpz_set(m, nm1);
-    uint e = 0;
-    while (mpz_even_p(m)) {    // u % 2 == 0
-        mpz_cdiv_q(m, m, TWO); // u = u / 2
-        e++;
-    }
-    for (ull p2 : millerrabin_prime) {
-        mpz_set_ui(p, p2);
-        isp = isp && millerrabin(n, nm1, m, p, e);
-    }
-    return isp;
-}
 
 int _JacobiSymbolImpl(ll numerator, ll denominator);
 int JacobiSymbol(ll upperArgument, ll lowerArgument)
@@ -154,7 +31,7 @@ int _JacobiSymbolImpl(ll numerator, ll denominator)
     uint countFactorsOf2 = 0;
     for (; numerator % 2 == 0 && numerator > 0; numerator /= 2)
         countFactorsOf2++;
-    if (__gcd(numerator, denominator) != 1)
+    if (gcd(numerator, denominator) != 1)
         return 0;
     int ret = 1;
     if (countFactorsOf2 & 1) {
@@ -236,7 +113,7 @@ ll getD(ll n)
     ll ds, g;
     for (;;) {
         ds = D * s;
-        g = __gcd(ds, n);
+        g = gcd(ds, n);
         if (g != 1 or g != -1)
             return 0;
 
@@ -255,7 +132,7 @@ ll getD_debug(ll n)
     int j;
     for (;;) {
         ds = D * s;
-        g = __gcd(ds, n);
+        g = gcd(ds, n);
         if (g != 1 or g != -1)
             return 0;
 
@@ -269,17 +146,17 @@ ll getD_debug(ll n)
     }
 }
 bool lucas(ll n)
-{ /*
-     for (ll p : prime) {
-         if (n % p == 0)
-             return n == p;
-     }
+{
+    for (ll p : prime) {
+        if (n % p == 0)
+            return n == p;
+    }
     ll D = 5;
     ll s = 1;
     ll ds, g;
     for (;;) {
         ds = D * s;
-        g = __gcd(ds, n);
+        g = gcd(ds, n);
         if (abs(g) != 1)
             return 0;
 
@@ -288,8 +165,8 @@ bool lucas(ll n)
 
         D += 2;
         s = -s;
-    }*/
-    return lucassequence(n, getD_debug(n));
+    }
+    return lucassequence(n, ds);
 }
 
 /*
@@ -303,8 +180,7 @@ int strongPrimalityTest(ull n)
         if (n % p == 0)
             if (n == p)
                 return 2;
-            else
-                return 0;
+            return 0;
     }
     // n - 1 = r * 2 ^ s
     ull r = (n - 1) >> 1;
@@ -346,10 +222,6 @@ bool execute_command(string command)
     }
     if (command == "/h") {
         cout << help_info;
-        return false;
-    }
-    if (command == "/r") {
-        print_res = !print_res;
         return false;
     }
     if (command == "/q") {
@@ -423,33 +295,10 @@ string get_argument_str(string message = "")
     return "";
 }
 
-bool gmp_miller(ll num)
-{
-    mpz_t n;
-    mpz_init_set_si(n, num);
-    return mpz_millerrabin(n, 30) > 0;
-}
-bool gmp_miller_str(string num)
-{
-    mpz_t n;
-    mpz_init_set_str(n, num.c_str(), 10);
-    return mpz_millerrabin(n, 30) > 0;
-}
-ll gmp_jacobi(ll d, ll n)
-{
-    mpz_t D, N;
-    mpz_init_set_si(D, d);
-    mpz_init_set_si(N, n);
-    return mpz_jacobi(D, N);
-}
-
 int main()
 {
-    cout << __gcd(-5, 5719) << '\n';
+    cout << toBin(32) << '\n';
     string entry;
-    mpz_init_set_ui(ZERO, 0);
-    mpz_init_set_ui(ONE, 1);
-    mpz_init_set_ui(TWO, 2);
     printf("============================\n=Welcome to this calculator=\n============================\n");
     cout << help_info << choose_mode_info << mode_info;
     while (1) {
@@ -459,9 +308,10 @@ int main()
         if (entry[0] == '/') {
             restart = execute_command(entry);
             if (restart)
-                continue;                 // 重新选择
-        } else if (entry.length() == 1) { // 如果字符串长度为1
+                continue;
+        } else if (entry.length() == 1) {
             ull arg1 = 0, arg2 = 0;
+            vector<ull> v1 = {};
             switch (entry[0]) {
             case '1': // 模式1，生成质数序列
                 printf("[Current mode]: Generate prime number list-1\n");
@@ -472,11 +322,16 @@ int main()
                 arg2 = get_argument("Please enter the end value: ");
                 if (restart)
                     break; // 重新选择
-
-                for (ull p : PrimeList64(arg1, arg2)) {
-                    cout << p << ' ';
-                }
-                cout << "\nFinish\n";
+                
+                START_TIMING
+                v1 = PrimeList64(arg1, arg2);
+                /*
+                for (int i = 0; i < v1.size(); i++) {
+                    cout << v1[i] << ' ';
+                } //*/
+                END_TIMING_MS
+                cout << '\n'
+                     << v1.size() << "\nFinish\n";
                 cout << choose_mode_info;
                 break;
 
@@ -489,9 +344,8 @@ int main()
                 t1 = MillerRabin(arg1);
                 if (t1)
                     printf("YES\n");
-
                 else
-                    printf("YES\n");
+                    printf("NO\n");
 
                 cout << choose_mode_info;
                 break;
@@ -519,23 +373,30 @@ int main()
                 if (restart)
                     break; // 重新选择
 
-                for (auto i : PrimeListMT(arg1, arg2)) {
+                v1 = PrimeListMT(arg1, arg2);
+                //*
+                for (auto i : v1) {
                     cout << i << ' ';
-                }
-                cout << "\nFinish\n";
+                } //*/
+                cout << '\n'
+                     << v1.size() << "\nFinish\n";
                 cout << choose_mode_info;
                 break;
 
             case '5': // 模式5 分块埃筛
-                printf("[Current mode]: Multi-threading blocked Eratosthenes sieve\n");
+                printf("[Current mode]: Multi-threaded blocked Eratosthenes sieve\n");
                 arg1 = get_argument("Please enter a positive integer: ");
                 if (restart)
                     break; // 重新选择
-
-                for (ull i : MTBEratosthenesSieve(arg1)) {
+                START_TIMING
+                v1 = EratosthenesSieve(arg1);
+                /*
+                for (ull i : v1) {
                     cout << i << ' ';
-                }
-                cout << "\nFinish\n";
+                }//*/
+                END_TIMING_MS
+                cout << '\n'
+                     << v1.size() << "\nFinish\n";
                 cout << choose_mode_info;
                 break;
 
@@ -564,22 +425,25 @@ int main()
                 if (restart)
                     break; // 重新选择
 
-                for (arg1 = arg1 | 1; arg1 < arg2; arg1 += 2) {
-                    t1 = ((strongPrimalityTest(arg1) > 0) == gmp_miller(arg1));
-                    if (not t1)
-                        cout << arg1 << '\n';
-                }
-
+                START_TIMING
+                v1 = PrimeList64(arg1, arg2);
+                /*
+                for (int i = 0; i < v1.size(); i++) {
+                    cout << v1[i] << ' ';
+                } //*/
+                END_TIMING_MS
+                cout << '\n'
+                     << v1.size() << "\nFinish\n";
                 cout << choose_mode_info;
                 break;
 
             case '8': // mode-8，debug-2
+
                 printf("[Current mode]: Debug-2\n");
                 arg1 = get_argument("Please enter a positive integer: ");
 
                 if (restart)
                     break; // 重新选择
-                start_time = high_resolution_clock::now();
                 t1 = lucas(arg1);
                 if (t1)
                     printf("YES\n");

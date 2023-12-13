@@ -1,9 +1,9 @@
 #pragma once
-#include <assert.h>
 #include <atomic>
+#include <bitset>
 #include <chrono>
 #include <cmath>
-#include <gmpxx.h>
+#include <exception>
 #include <iostream>
 #include <map>
 #include <stdio.h>
@@ -11,20 +11,24 @@
 #include <thread>
 #include <vector>
 
+#define DEBUG 0
 #define max(x, y) (((x) > (y)) ? (x) : (y))
 #define min(x, y) (((x) < (y)) ? (x) : (y))
 #define qmul(x, y, mod) (((__int128)x * y) % mod)
 #define pi_n(n) (n / (log(n) - 1.1))
-#define START_TIMING auto start_time = chrono::steady_clock::now();
-#define END_TIMING_S                                                                                      \
-    elapsed_time = duration_cast<miliseconds>(chrono::steady_clock::now() - start_time).count() / 1000.0; \
-    printf("The calculation takes %.4f seconds\n", elapsed_time);
-#define END_TIMING_MS                                                                                      \
-    elapsed_time = duration_cast<microseconds>(chrono::steady_clock::now() - start_time).count() / 1000.0; \
-    printf("The calculation takes %.4f miliseconds\n", elapsed_time);
 
 using namespace std;
 using namespace chrono;
+
+steady_clock::time_point start_time;
+double elapsed_time;
+#define START_TIMING start_time = steady_clock::now();
+#define END_TIMING_S                                                                              \
+    elapsed_time = duration_cast<miliseconds>(steady_clock::now() - start_time).count() / 1000.0; \
+    printf("The calculation takes %.4f seconds\n", elapsed_time);
+#define END_TIMING_MS                                                                              \
+    elapsed_time = duration_cast<microseconds>(steady_clock::now() - start_time).count() / 1000.0; \
+    printf("The calculation takes %.4f miliseconds\n", elapsed_time);
 
 typedef unsigned int uint;
 typedef unsigned long long ull;
@@ -50,68 +54,92 @@ std::map<std::string, const std::string> test_set = {
     {"test10", "1111111121"},
 };
 
-class Bitslist64
+template <typename _T>
+_T gcd(_T m, _T n)
+{
+    while (n != 0) {
+        _T t = m % n;
+        m = n;
+        n = t;
+    }
+    return m;
+}
+
+string toBin(char c)
+{
+    bitset<sizeof(char) * 8> b(c);
+    return b.to_string();
+}
+
+class Bitvector
 {
 public:
-    Bitslist64(ull n, bool init);
-    ~Bitslist64();
-    inline bool at(ull index);
-    inline void setfalse(ull index);
-    inline void settrue(ull index);
-    void reset(bool a);
-
-private:
-    char *list;
+    Bitvector(ull, bool);
+    bool at(ull);
+    void setFalse(ull);
+    void setTrue(ull);
+    void resetTrue();
+    void resetFalse();
+    vector<uc> list;
     ull length;
 };
-Bitslist64::Bitslist64(ull n, bool init)
+Bitvector::Bitvector(ull n, bool init)
 {
+#if DEBUG
     if (n == 0)
-        throw "n must be positive integer!";
+        throw runtime_error("n must be positive integer!");
+#endif
 
     length = ((n - 1) >> 3) + 1;
-    list = new char[length];
+    list.reserve(length);
     if (init == true) {
         for (ull i = 0; i < length; i++)
-            list[i] = (char)0xff;
+            list[i] = (uc)0xff;
     } else {
         for (ull i = 0; i < length; i++)
-            list[i] = (char)0x00;
+            list[i] = (uc)0x00;
     }
 }
-Bitslist64::~Bitslist64()
-{
-    delete[] list;
-}
-inline bool Bitslist64::at(ull n)
+bool Bitvector::at(ull n)
 {
     ull shang = n >> 3;
+#if DEBUG
+    if (shang >= length)
+        throw runtime_error("Bitlist64: out of index");
+#endif
     ull yushu = n & 7;
     return (list[shang] & (1 << yushu));
 }
-inline void Bitslist64::setfalse(ull n)
+void Bitvector::setFalse(ull n)
 {
     ull shang = n >> 3;
+#if DEBUG
+    if (shang >= length)
+        throw runtime_error("Bitlist64: out of index");
+#endif
     ull yushu = n & 7;
     list[shang] = list[shang] & (~(1 << yushu));
 }
-inline void Bitslist64::settrue(ull n)
+void Bitvector::setTrue(ull n)
 {
     ull shang = n >> 3;
+#if DEBUG
+    if (shang >= length)
+        throw runtime_error("Bitlist64: out of index");
+#endif
     ull yushu = n & 7;
     list[shang] = list[shang] | (1 << yushu);
 }
-void Bitslist64::reset(bool a)
+void Bitvector::resetTrue()
 {
-    if (a == true) {
-        for (ull i = 0; i < length; i++)
-            list[i] = (char)0xff;
-    } else {
-        for (ull i = 0; i < length; i++)
-            list[i] = (char)0x00;
-    }
+    for (ull i = 0; i < length; i++)
+        list[i] = (uc)0xff;
 }
-
+void Bitvector::resetFalse()
+{
+    for (ull i = 0; i < length; i++)
+        list[i] = (uc)0x00;
+}
 class Range
 {
 public:
@@ -121,7 +149,7 @@ public:
     Range(ull start, ull end)
     {
         if (start > end)
-            throw "START can not be greater than END!";
+            throw runtime_error("START can not be greater than END!");
         ull r = start % 6;
         if (r == 0 or r == 1) {
             start = ((start / 6) * 6) + 1;
@@ -176,9 +204,6 @@ inline ll absmod(ll x, ll mod)
 
 bool TrialAndError(ull n, const ull *P = prime)
 {
-    /*
-    this function can only test Pseudoprime Number
-    */
     for (ull p : prime) {
         if (n % p == 0)
             return n == p;
@@ -190,7 +215,7 @@ bool MillerRabin(ull n)
 {
     ull nm1 = n - 1; // n minus 1
     ull t = 0, s = nm1;
-    while (s & 1 == 0) {
+    while ((s & 1) == 0) {
         s >>= 1;
         t++;
     }
@@ -251,23 +276,25 @@ map<ull, ull> PrimeFactorization(ull n)
 vector<ull> PrimeList64(ull start, ull end)
 {
     ull i, j, root = (ull)sqrt(end) + 1;
-    Bitslist64 is_prime((end - 1) / 2, true);
-    start = max(3, start);
+    Bitvector is_prime((end + 1) / 2, true);
     vector<ull> primes;
     primes.reserve(pi_n(end) - pi_n(start));
     if (start <= 2 and 2 <= end)
         primes.push_back(2);
+    start = max(3, start);
     for (i = 3; i < start; i += 2) {
         if (is_prime.at(i >> 1)) {
-            for (j = i * i; j <= end; j += i << 1)
-                is_prime.setfalse(j >> 1);
+            for (j = i * i; j <= end; j += i << 1) {
+                is_prime.setFalse(j >> 1);
+            }
         }
     }
     for (i = start; i < root; i += 2) {
         if (is_prime.at(i >> 1)) {
             primes.push_back(i);
-            for (j = i * i; j <= end; j += i << 1)
-                is_prime.setfalse(j >> 1);
+            for (j = i * i; j <= end; j += i << 1) {
+                is_prime.setFalse(j >> 1);
+            }
         }
     }
     for (i = max(root, start) | 1; i <= end; i += 2) {
@@ -303,12 +330,80 @@ vector<ull> PrimeListMT(ull start, ull end)
     if (start <= 2 and 2 <= end) {
         primes.push_back(2);
     }
+    if (start <= 3 and 3 <= end) {
+        primes.push_back(3);
+    }
     start = max(3, start);
     Range range(start, end);
     vector<thread> threads;
-    for (ull i = 0; i < th_count; i++)
+    for (ull i = 0; i < 2; i++)
         threads.push_back(thread(PrimeListMT_Impl, end, &primes, &range));
-    for (ull i = 0; i < th_count; i++)
+    for (ull i = 0; i < 2; i++)
         threads[i].join();
     return primes;
+}
+
+void EratosthenesSieve_Impl(ull S, vector<ull> *primes, vector<vector<ull>> *result, atomic<ull> *it, ull n, ull count)
+{
+    ull i, j, k, l, start, p;
+    Bitvector is_prime(S >> 1, true);
+    for (k = ++(*it); k * S <= n; k = ++(*it)) {
+        start = k * S;
+        is_prime.resetTrue();
+        for (l = 0; l < count; l++) {
+            p = (*primes)[l];
+            for (j = max(((start + p - 1) / p) | 1, p) * p - start; j < S; j += p << 1)
+                is_prime.setFalse(j >> 1);
+        }
+        for (i = 1; i < S and start + i <= n; i += 2) {
+            if (is_prime.at(i >> 1)) {
+                (*result)[k].push_back(i);
+            }
+        }
+    }
+}
+vector<ull> EratosthenesSieve(ull n)
+{ // multithreaded blocked Eratosthenes sieve
+    const ull S = 524288;
+    atomic<ull> it(0);
+    vector<ull> primes;
+    vector<vector<ull>> result;
+    for (ull i = 0; i < (n / S + 1); i++) {
+        result.push_back(vector<ull>{});
+    }
+    if (n >= 2)
+        result[0].push_back(2);
+    ull nsqrt = (ull)sqrt(n), count = 0, i, j, p;
+    Bitvector is_prime0((nsqrt >> 1) + 1, true);
+    for (i = 3; i <= nsqrt; i += 2) {
+        if (is_prime0.at(i >> 1)) {
+            primes.push_back(i);
+            count++;
+            for (j = i * i; j <= nsqrt; j += i << 1)
+                is_prime0.setFalse(j >> 1);
+        }
+    }
+    Bitvector is_prime(S >> 1, true);
+    for (i = 0; i < count; i++) {
+        p = primes[i];
+        for (j = p * p; j < S; j += p << 1)
+            is_prime.setFalse(j >> 1);
+    }
+    for (i = 3; i < S and i <= n; i += 2) {
+        if (is_prime.at(i >> 1)) {
+            result[0].push_back(i);
+        }
+    }
+    vector<thread> threads;
+    for (i = 0; i < 2; i++)
+        threads.push_back(thread(EratosthenesSieve_Impl, S, &primes, &result, &it, n, count));
+
+    for (i = 0; i < 2; i++)
+        threads[i].join();
+
+    vector<ull> a;
+    for (const auto b : result) {
+        a.insert(a.end(), b.begin(), b.end());
+    }
+    return a;
 }
