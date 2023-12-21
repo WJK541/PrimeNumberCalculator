@@ -1,9 +1,11 @@
 #pragma once
+#include <any>
 #include <atomic>
 #include <bitset>
 #include <chrono>
 #include <cmath>
 #include <exception>
+#include <fstream>
 #include <functional>
 #include <iostream>
 #include <map>
@@ -25,14 +27,10 @@ using namespace std;
 using namespace chrono;
 
 steady_clock::time_point start_time;
-double elapsed_time;
+nanoseconds elapsed_time;
 #define START_TIMING start_time = steady_clock::now();
-#define END_TIMING_S                                                                              \
-    elapsed_time = duration_cast<miliseconds>(steady_clock::now() - start_time).count() / 1000.0; \
-    printf("The calculation takes %.4f seconds\n", elapsed_time);
-#define END_TIMING_MS                                                                              \
-    elapsed_time = duration_cast<microseconds>(steady_clock::now() - start_time).count() / 1000.0; \
-    printf("The calculation takes %.4f miliseconds\n", elapsed_time);
+#define END_TIMING elapsed_time = steady_clock::now() - start_time;
+#define PRINT_TIME printf("The calculation takes %.4f miliseconds\n", duration_cast<microseconds>(elapsed_time).count() / 1000.0);
 
 typedef unsigned int uint;
 typedef unsigned long long ull;
@@ -47,8 +45,11 @@ const ull S = 2097152;
 
 bool restart = false;
 bool print_res = false;
+bool enabled_write = false;
 
 map<string, bool (*)()> commands;
+
+map<char, int> arg_count;
 
 map<string, const string> test_set = {
     {"test1000", "111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111991"},
@@ -65,7 +66,7 @@ map<string, const string> test_set = {
 };
 
 template <typename T>
-T gcd(T m, T n)
+T gcd(T m, T n) noexcept
 {
     while (n != 0) {
         T t = m % n;
@@ -81,11 +82,9 @@ string toBin(char c)
     return b.to_string();
 }
 
-class Bitvector
-{
-public:
+struct Bitvector {
     Bitvector(ull, bool);
-    bool at(ull);
+    bool at(ull) const;
     void setFalse(ull);
     void setTrue(ull);
     void resetTrue();
@@ -98,7 +97,6 @@ Bitvector::Bitvector(ull n, bool init)
     if (n == 0)
         throw runtime_error("n must be positive integer!");
 #endif
-
     ull length = ((n - 1) >> 3) + 1;
     if (init) {
         list.resize(length, (uc)0xff);
@@ -106,47 +104,23 @@ Bitvector::Bitvector(ull n, bool init)
         list.resize(length, (uc)0x00);
     }
 }
-bool Bitvector::at(ull n)
+bool Bitvector::at(ull n) const
 {
     ull shang = n >> 3;
     ull yushu = n & 7;
-#if DEBUG
-    int item = 0;
-    try {
-        item = list.at(shang) & (1 << yushu);
-    } catch (exception e) {
-        cout << "at: " << shang << '\n';
-    }
-    return item;
-#else
     return (list[shang] & (1 << yushu));
-#endif
 }
 void Bitvector::setFalse(ull n)
 {
     ull shang = n >> 3;
     ull yushu = n & 7;
-#if DEBUG
-    int item = 0;
-    try {
-        item = list.at(shang) & (~(1 << yushu));
-        list.at(shang) = item;
-    } catch (exception e) {
-        cout << "setFalse: " << shang << '\n';
-    }
-#else
     list[shang] = list[shang] & (~(1 << yushu));
-#endif
 }
 void Bitvector::setTrue(ull n)
 {
     ull shang = n >> 3;
     ull yushu = n & 7;
-#if DEBUG
-    list.at(shang) = list.at(shang) | (1 << yushu);
-#else
     list[shang] = list[shang] | (1 << yushu);
-#endif
 }
 void Bitvector::resetTrue()
 {
@@ -316,7 +290,7 @@ vector<ull> PrimeList64(ull start, ull end)
             }
         }
     }
-    for (i = start; i < root; i += 2) {
+    for (i = start | 1; i < root; i += 2) {
         if (is_prime.at(i >> 1)) {
             primes.push_back(i);
             for (j = i * i; j <= end; j += i << 1) {
@@ -377,21 +351,23 @@ vector<vector<ull> *> PrimeListMT(ull start, ull end)
     return primes;
 }
 
-void EratosthenesSieve_Impl(vector<ull> *primes, vector<vector<ull> *> *result, atomic<ull> *it, ull n)
+void EratosthenesSieve_Impl(vector<ull> &primes, vector<vector<ull> *> &result, atomic<ull> &it, ull n)
 {
-    ull i, j, k, l, start, p;
+    ull i, j, k, l, start, p, size = primes.size();
     Bitvector is_prime(S >> 1, true);
-    for (k = ++(*it); k * S <= n; k = ++(*it)) {
+    for (k = ++it; k * S <= n; k = ++it) {
         start = k * S;
         is_prime.resetTrue();
-        for (l = 0; l < primes->size(); l++) {
-            p = (*primes)[l];
-            for (j = max(((start + p - 1) / p) | 1, p) * p - start; j < S; j += p << 1)
+        for (l = 0; l < size; l++) {
+            p = primes[l];
+            ull min_j = max(((start + p - 1) / p) | 1, p) * p - start;
+            ull step = p << 1;
+            for (j = min_j; j < S; j += step)
                 is_prime.setFalse(j >> 1);
         }
         for (i = 1; i < S and i <= n - start; i += 2) {
             if (is_prime.at(i >> 1)) {
-                result->at(k)->push_back(i);
+                result.at(k)->push_back(i);
             }
         }
     }
@@ -402,7 +378,7 @@ vector<vector<ull> *> EratosthenesSieve(ull n)
     vector<ull> primes;
     vector<vector<ull> *> result;
     for (ull i = 0; i < (n / S + 1); i++) {
-        result.push_back(new vector<ull>());
+        result.emplace_back(new vector<ull>());
         // pi_n((i + 1) * S) - pi_n(i * S)
     }
     if (n >= 2) {
@@ -432,7 +408,7 @@ vector<vector<ull> *> EratosthenesSieve(ull n)
     const ull thread_count = min(n / S, th_count);
     // const ull thread_count = 32;
     for (i = 0; i < thread_count; i++)
-        threads.push_back(thread(EratosthenesSieve_Impl, &primes, &result, &it, n));
+        threads.push_back(thread(EratosthenesSieve_Impl, ref(primes), ref(result), ref(it), n));
 
     for (auto &th : threads)
         th.join();
@@ -501,18 +477,14 @@ bool lucassequence(ll num, ll D)
     }
     cout << "\nQ=" << Q << ", D="
          << D << '\n'; //*/
-    ll a = 1;
     for (auto i = bit.end() - 2; i >= bit.begin(); i--) {
         Q_2k = ((__int128_t)Q_k * Q_k) % num;
         U_2k = ((__int128_t)U_k * V_k) % num;
         V_2k = ((__int128_t)V_k * V_k - 2 * Q_k) % num;
-        a *= 2;
         /*
         cout << "U" << a << ": " << U_2k << "\n";
         cout << "V" << a << ": " << V_2k << "\n\n"; //*/
-
         if (*i == '1') { // 下标+1
-            a += 1;
             Q_k = ((__int128_t)Q_2k * Q) % num;
 
             U_k = ((__int128_t)P * U_2k + V_2k);
@@ -577,13 +549,104 @@ bool Lucas(ll n)
     return lucassequence(n, ds);
 }
 
-template <typename T>
-void output(T msg)
+const string invalid_mode = "Invalid mode!!!\n";
+const string help_info = "\n[Commands]:\n/h  Get commands\n/m  Re-select mode\n/q  Quit the program\n";
+const string mode_info = "1)Generate prime number list-1    2)Primality test    3)Factorization    4)Generate prime number list-2\n5)Eratosthenes sieve    6)Miller-Rabin    7)Debug-1    8)Debug-2\n";
+const string choose_mode_info = "\n[Select mode]:";
+
+bool execute_command(string command)
 {
-    cout << msg;
+    if (command == "/m") {
+        cout << mode_info << choose_mode_info;
+        return true;
+    }
+    if (command == "/h") {
+        cout << help_info;
+        return false;
+    }
+    if (command == "/r") {
+        print_res = !print_res;
+        return false;
+    }
+    if (command == "/w") {
+        enabled_write = !enabled_write;
+        return false;
+    }
+    if (command == "/q") {
+        exit(0);
+    }
+    printf("Invalid command!!!\n");
+    return false;
+}
+
+bool StringtoUll(ull &arg, string str)
+{
+    ull num = 0;
+    if (str == "" or str.size() > 20)
+        return false;
+    for (uint i = 0; i < str.size(); i++) {
+        if (str.at(i) < '0' or str.at(i) > '9')
+            return false;
+    }
+    for (uint i = 0; i < str.size(); i++)
+        num = num * 10 + str.at(i) - '0';
+
+    if (num >= 1e19 or num <= 0)
+        return false;
+    arg = num;
+    return true;
+}
+
+ull get_argument(string message = "")
+{
+    ull arg = 0;
+    string entry;
+    while (1) {
+        cout << message;
+        getline(cin, entry);
+        if (entry[0] == '/') {
+            restart = execute_command(entry);
+            if (restart)
+                break; // 重新选择
+        } else if (StringtoUll(arg, entry))
+            break; // 转成数字后返回
+
+        else
+            printf("Invalid input!!!\n");
+    }
+    return arg;
+}
+
+template <typename T>
+struct Result {
+public:
+    Result(T arg) : var(arg) {}
+    ~Result();
+    void output() { output_impl(var); }
+    void write() { write_impl(var); };
+    T var;
+
+private:
+    void output_impl(T msg);
+    void write_impl(vector<ull> &data);
+    void write_impl(vector<vector<ull> *> &data);
+};
+template <typename T>
+Result<T>::~Result() {}
+template <>
+Result<vector<vector<ull> *>>::~Result()
+{
+    for (auto &i : var) {
+        delete i;
+    }
+}
+template <typename T>
+void Result<T>::output_impl(T msg)
+{
+    cout << "Result: var\n";
 }
 template <>
-void output<bool>(bool msg)
+void Result<bool>::output_impl(bool msg)
 {
     if (msg) {
         printf("YES\n");
@@ -592,7 +655,7 @@ void output<bool>(bool msg)
     }
 }
 template <>
-void output<vector<ull>>(vector<ull> msg)
+void Result<vector<ull>>::output_impl(vector<ull> msg)
 {
     if (print_res) {
         for (const auto &i : msg) {
@@ -603,20 +666,93 @@ void output<vector<ull>>(vector<ull> msg)
          << msg.size() << '\n';
 }
 template <>
-void output<vector<vector<ull> *>>(vector<vector<ull> *> msg)
+void Result<vector<vector<ull> *>>::output_impl(vector<vector<ull> *> msg)
 {
     ull count = 0;
     for (auto &i : msg) {
         count += i->size();
         if (not print_res) {
-            delete i;
             continue;
         }
         for (const auto &j : *i) {
             printf("%llu ", j);
         }
-        delete i;
     }
     cout << '\n'
          << count << '\n';
+}
+template <>
+void Result<map<ull, ull>>::output_impl(map<ull, ull> msg)
+{
+    for (auto &p : msg) {
+        cout << (p.first) << "   " << (p.second) << '\n';
+    }
+}
+template <>
+void Result<vector<ull>>::write_impl(vector<ull> &dynamicData)
+{
+    ofstream outputFile("dynamic_data.bin", ios::binary);
+    if (not outputFile.is_open()) {
+        cerr << "Unable to open the file." << endl;
+        return;
+    }
+    int dataSize = dynamicData.size();
+    outputFile.write(reinterpret_cast<const char *>(&dataSize), sizeof(dataSize));
+    outputFile.write(reinterpret_cast<const char *>(dynamicData.data()), dataSize * sizeof(ull));
+    outputFile.close();
+
+    cout << "Binary file write successful." << endl;
+}
+template <>
+void Result<vector<vector<ull> *>>::write_impl(vector<vector<ull> *> &dynamicData)
+{
+    ofstream outputFile("dynamic_data.bin", ios::binary);
+    if (not outputFile.is_open()) {
+        cerr << "Unable to open the file." << endl;
+        return;
+    }
+
+    int dataSize = 0;
+    for (auto &i : dynamicData) {
+        dataSize += dynamicData.size();
+    }
+    outputFile.write(reinterpret_cast<const char *>(&dataSize), sizeof(dataSize));
+
+    for (auto &i : dynamicData) {
+        outputFile.write(reinterpret_cast<const char *>(i->data()), dataSize * sizeof(ull));
+    }
+    outputFile.close();
+
+    cout << "Binary file write successful." << endl;
+}
+void read(vector<ull> arg)
+{
+    ifstream inputFile("dynamic_data.bin", ios::binary);
+    if (not inputFile.is_open()) {
+        cerr << "Unable to open the file." << endl;
+        return;
+    }
+
+    int dataSize;
+    inputFile.read(reinterpret_cast<char *>(&dataSize), sizeof(dataSize));
+    cout << "dataSize: " << dataSize << '\n';
+
+    vector<ull> dynamicDataRead(dataSize);
+    inputFile.read(reinterpret_cast<char *>(dynamicDataRead.data()), dataSize * sizeof(ull));
+
+    cout << "Read data from binary file:" << endl;
+
+    if (arg.size() == dynamicDataRead.size()) {
+        for (int i = 0; i < arg.size(); i++) {
+            if (arg[i] != dynamicDataRead[i]) {
+                cout << "Wrong Answer\n";
+                break;
+            }
+        }
+        cout << "Correct Answer\n";
+    } else {
+        cout << "Wrong Answer\n";
+    }
+
+    inputFile.close();
 }

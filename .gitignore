@@ -1,5 +1,9 @@
 /.vscode
 /compile_the_code.bat
 /PrimeNumberCalculator.exe
-/Test.cpp
-/Test.exe
+/test.cpp
+/test.exe
+/example.txt
+/test2.cpp
+/test2.exe
+dynamic_data.bin
