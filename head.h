@@ -1,4 +1,5 @@
 #pragma once
+#include <algorithm>
 #include <any>
 #include <atomic>
 #include <bitset>
@@ -10,6 +11,7 @@
 #include <iostream>
 #include <map>
 #include <mutex>
+#include <span>
 #include <stdio.h>
 #include <string>
 #include <thread>
@@ -18,8 +20,6 @@
 #include <vector>
 
 #define DEBUG 1
-#define max(x, y) (((x) > (y)) ? (x) : (y))
-#define min(x, y) (((x) < (y)) ? (x) : (y))
 #define qmul(x, y, mod) (((__int128)x * y) % mod)
 #define pi_n(n) (n / (log(n) - 1.1))
 
@@ -47,7 +47,10 @@ bool restart = false;
 bool print_res = false;
 bool enabled_write = false;
 
-map<string, bool (*)()> commands;
+ifstream inputFile("dynamic_data.bin", ios::binary);
+
+map<string, bool (*)()>
+    commands;
 
 map<char, int> arg_count;
 
@@ -150,7 +153,7 @@ public:
         }
         ull i = start;
         for (;;) {
-            vv.push_back(new vector<ull>());
+            vv.emplace_back(new vector<ull>());
             do {
                 if (flag) {
                     flag = false;
@@ -282,7 +285,7 @@ vector<ull> PrimeList64(ull start, ull end)
     primes.reserve(pi_n(end) - pi_n(start));
     if (start <= 2 and 2 <= end)
         primes.push_back(2);
-    start = max(3, start);
+    start = max(3LLU, start);
     for (i = 3; i < start; i += 2) {
         if (is_prime.at(i >> 1)) {
             for (j = i * i; j <= end; j += i << 1) {
@@ -306,13 +309,13 @@ vector<ull> PrimeList64(ull start, ull end)
     return primes;
 }
 
-void PrimeListMT_Impl(ull end, atomic<ull> *index, vector<vector<ull> *> *primes, Range *range)
+void PrimeListMT_Impl(ull end, atomic<ull> &index, vector<vector<ull> *> &primes, Range &range)
 {
     ull num, k;
     vector<ull> *v;
     for (;;) {
-        k = index->fetch_add(1);
-        v = range->get(k);
+        k = index.fetch_add(1);
+        v = range.get(k);
         if (v == NULL) {
             return;
         }
@@ -320,12 +323,12 @@ void PrimeListMT_Impl(ull end, atomic<ull> *index, vector<vector<ull> *> *primes
             for (ull i = 2; i < 25; i++) {
                 if (num % prime[i] == 0) {
                     if (num == prime[i])
-                        primes->at(k)->push_back(num);
+                        primes.at(k)->push_back(num);
                     goto NEXT_LOOP;
                 }
             }
             if (MillerRabin(num))
-                primes->at(k)->push_back(num);
+                primes.at(k)->push_back(num);
         NEXT_LOOP:;
         }
     }
@@ -340,51 +343,49 @@ vector<vector<ull> *> PrimeListMT(ull start, ull end)
         primes[0]->push_back(2);
     if (start <= 3 and 3 <= end)
         primes[0]->push_back(3);
-    start = max(3, start);
+    start = max(3LLU, start);
     Range range(start, end);
     vector<thread> threads;
     for (ull i = 0; i < 32; i++)
-        threads.push_back(thread(PrimeListMT_Impl, end, &index, &primes, &range));
+        threads.push_back(thread(PrimeListMT_Impl, end, ref(index), ref(primes), ref(range)));
     for (auto &th : threads) {
         th.join();
     }
     return primes;
 }
 
-void EratosthenesSieve_Impl(vector<ull> &primes, vector<vector<ull> *> &result, atomic<ull> &it, ull n)
+void EratosthenesSieve_Impl(ull start, ull end, vector<ull> &primes, vector<vector<ull> *> &result, atomic<ull> &it)
 {
-    ull i, j, k, l, start, p, size = primes.size();
+    ull i, j, begin, l;
     Bitvector is_prime(S >> 1, true);
-    for (k = ++it; k * S <= n; k = ++it) {
-        start = k * S;
+    for (l = ++it, begin = start + l * S; begin <= end; begin += S) {
         is_prime.resetTrue();
-        for (l = 0; l < size; l++) {
-            p = primes[l];
-            ull min_j = max(((start + p - 1) / p) | 1, p) * p - start;
+        for (ull &p : primes) {
+            ull min_j = max(((begin + p - 1) / p) | 1, p) * p - begin;
             ull step = p << 1;
             for (j = min_j; j < S; j += step)
                 is_prime.setFalse(j >> 1);
         }
-        for (i = 1; i < S and i <= n - start; i += 2) {
+        for (i = 1; i < S and i <= end; i += 2) {
             if (is_prime.at(i >> 1)) {
-                result.at(k)->push_back(i);
+                result.at(l)->push_back(i + begin - 1);
             }
         }
     }
 }
-vector<vector<ull> *> EratosthenesSieve(ull n)
+vector<vector<ull> *> EratosthenesSieve(ull start, ull end)
 { // multithreaded blocked Eratosthenes sieve
     atomic<ull> it(0);
     vector<ull> primes;
     vector<vector<ull> *> result;
-    for (ull i = 0; i < (n / S + 1); i++) {
+    for (ull i = 0; i < (end / S + 1); i++) {
         result.emplace_back(new vector<ull>());
         // pi_n((i + 1) * S) - pi_n(i * S)
     }
-    if (n >= 2) {
+    if (start <= 2 and 2 <= end) {
         result[0]->push_back(2);
     }
-    ull nsqrt = (ull)sqrt(n), i, j, p;
+    ull nsqrt = (ull)sqrt(end), i, j, p;
     Bitvector is_prime0((nsqrt >> 1) + 1, true);
     for (i = 3; i <= nsqrt; i += 2) {
         if (is_prime0.at(i >> 1)) {
@@ -394,21 +395,23 @@ vector<vector<ull> *> EratosthenesSieve(ull n)
         }
     }
     Bitvector is_prime(S >> 1, true);
-    for (i = 0; i < primes.size(); i++) {
-        p = primes[i];
+    for (ull &p : primes) {
         for (j = p * p; j < S; j += p << 1)
             is_prime.setFalse(j >> 1);
     }
-    for (i = 3; i < S and i <= n; i += 2) {
+    start = max(start, 3LLU) | 1;
+    for (i = start; i < S and i <= end; i += 2) {
         if (is_prime.at(i >> 1)) {
             result[0]->push_back(i);
         }
     }
+    if (end < S)
+        return result;
     vector<thread> threads;
-    const ull thread_count = min(n / S, th_count);
+    const ull thread_count = min(end / S + 1, th_count);
     // const ull thread_count = 32;
     for (i = 0; i < thread_count; i++)
-        threads.push_back(thread(EratosthenesSieve_Impl, ref(primes), ref(result), ref(it), n));
+        threads.push_back(thread(EratosthenesSieve_Impl, start, end, ref(primes), ref(result), ref(it)));
 
     for (auto &th : threads)
         th.join();
@@ -573,6 +576,10 @@ bool execute_command(string command)
         return false;
     }
     if (command == "/q") {
+        if (inputFile.is_open()) {
+            // cout << "File is open!";
+            inputFile.close();
+        }
         exit(0);
     }
     printf("Invalid command!!!\n");
@@ -623,7 +630,11 @@ public:
     Result(T arg) : var(arg) {}
     ~Result();
     void output() { output_impl(var); }
-    void write() { write_impl(var); };
+    void write()
+    {
+        if (enabled_write)
+            write_impl(var);
+    };
     T var;
 
 private:
@@ -671,11 +682,10 @@ void Result<vector<vector<ull> *>>::output_impl(vector<vector<ull> *> msg)
     ull count = 0;
     for (auto &i : msg) {
         count += i->size();
-        if (not print_res) {
-            continue;
-        }
-        for (const auto &j : *i) {
-            printf("%llu ", j);
+        if (print_res) {
+            for (const auto &j : *i) {
+                printf("%llu ", j);
+            }
         }
     }
     cout << '\n'
@@ -723,36 +733,112 @@ void Result<vector<vector<ull> *>>::write_impl(vector<vector<ull> *> &dynamicDat
     }
     outputFile.close();
 
-    cout << "Binary file write successful." << endl;
+    cout << "Binary file write successful\n"
+         << "dataSize: " << dataSize << '\n';
 }
-void read(vector<ull> arg)
+ll estimate_shang(ull n)
+{
+    if (n < 1500)
+        return (ll)(sqrt(n) * 7);
+    return (ll)(0.9950510061421235 * n / (log(n - 992.5671175527089) - 1.1543272091285774));
+}
+ll estimate_xia(ll n)
+{
+    if (n < 1500)
+        return 0;
+    return (ll)(0.9973224072243801 * n / (log(n + 174882.10373792105) - 1.1090777912276728));
+}
+void verify(const vector<ull> &arg)
+{
+    if (arg.empty())
+        return;
+
+    ifstream inputFile("dynamic_data.bin", ios::binary);
+    if (!inputFile.is_open()) {
+        cerr << "Unable to open the file." << endl;
+        return;
+    }
+
+    int dataSize;
+    inputFile.seekg(0, ios::beg);
+    inputFile.read(reinterpret_cast<char *>(&dataSize), sizeof(dataSize));
+    ull firstData = arg.at(0);
+    ll shang = min(estimate_shang(firstData), (ll)dataSize);
+    ll xia = max(estimate_xia(firstData), 0LL);
+    size_t size_v = shang - xia;
+    vector<ull> v1(size_v);
+    inputFile.seekg(static_cast<streamoff>(xia * sizeof(ull)), ios::cur);
+    inputFile.read(reinterpret_cast<char *>(v1.data()), (size_v) * sizeof(ull));
+    cout << "min  " << v1.at(0) << '\n'
+         << "max  " << v1.back() << '\n'
+         << "data " << firstData << '\n';
+
+    uint low = 0;
+    uint high = size_v - 1;
+
+    if (firstData < v1.at(0) or firstData > v1.back()) {
+        cout << "index: Out of Range\n";
+        return;
+    }
+    uint start;
+    while (low <= high) {
+        uint mid = (low + high) / 2;
+        if (firstData == v1.at(mid)) {
+            start = mid;
+            cout << "index: " << mid << '\n';
+            goto FLAG;
+        } else if (firstData < v1.at(mid)) {
+            high = mid - 1;
+        } else {
+            low = mid + 1;
+        }
+    }
+    cout << "index: Not found\n";
+
+FLAG:
+    v1.resize(dataSize - start + 5, 0);
+    inputFile.seekg(static_cast<streamoff>((-size_v + start) * sizeof(ull)), ios::cur);
+
+    cout << endl;
+    size_t size = min(v1.size(), arg.size());
+    for (int i = 0; i < size; i++) {
+        if (arg.at(i) != v1.at(i)) {
+            cout << "Wrong Answer\n"
+                 << "Correct   Input\n";
+            for (int j = max(i - 10, 0); j < min(i + 10, (int)size); j++) {
+                if (j == i)
+                    cout << '*';
+                cout << v1.at(j) << "   " << arg.at(j) << '\n';
+            }
+            return;
+        }
+    }
+    cout << "Correct Answer\n";
+}
+void verify(vector<vector<ull> *> &arg)
+{
+    vector<ull> a;
+    for (auto &v : arg) {
+        a.insert(a.end(), v->begin(), v->end());
+    }
+    verify(a);
+}
+void read()
 {
     ifstream inputFile("dynamic_data.bin", ios::binary);
     if (not inputFile.is_open()) {
         cerr << "Unable to open the file." << endl;
         return;
     }
-
     int dataSize;
     inputFile.read(reinterpret_cast<char *>(&dataSize), sizeof(dataSize));
     cout << "dataSize: " << dataSize << '\n';
 
     vector<ull> dynamicDataRead(dataSize);
     inputFile.read(reinterpret_cast<char *>(dynamicDataRead.data()), dataSize * sizeof(ull));
-
-    cout << "Read data from binary file:" << endl;
-
-    if (arg.size() == dynamicDataRead.size()) {
-        for (int i = 0; i < arg.size(); i++) {
-            if (arg[i] != dynamicDataRead[i]) {
-                cout << "Wrong Answer\n";
-                break;
-            }
-        }
-        cout << "Correct Answer\n";
-    } else {
-        cout << "Wrong Answer\n";
+    int up = min(dynamicDataRead.size(), 1000LLU);
+    for (int i = 0; i < up; i++) {
+        cout << dynamicDataRead[i] << ' ';
     }
-
-    inputFile.close();
+    cout << endl;
 }

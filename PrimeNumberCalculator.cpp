@@ -2,6 +2,8 @@
 
 int main()
 {
+    //read();
+    
     cout << "============================\n"
          << "=Welcome to this calculator=\n"
          << "============================\n"
@@ -30,11 +32,10 @@ int main()
                 {
                     auto r = Result(PrimeList64(arg1, arg2));
                     r.output();
-                    if (enabled_write)
-                        r.write();
-                    read(r.var);
+                    r.write();
+                    verify(r.var);
                 }
-                
+
                 cout << choose_mode_info;
                 break;
 
@@ -80,24 +81,28 @@ int main()
                     auto r = Result(PrimeListMT(arg1, arg2));
                     r.output();
                     r.write();
+                    verify(r.var);
                 }
-                //read();
 
                 cout << choose_mode_info;
                 break;
 
             case '5': // 模式5 分块埃筛
                 printf("[Current mode]: Multi-threaded blocked Eratosthenes sieve\n");
-                arg1 = get_argument("Please enter a positive integer: ");
+                arg1 = get_argument("Please enter the starting value: ");
+                if (restart)
+                    break; // 重新选择
+
+                arg2 = get_argument("Please enter the end value: ");
                 if (restart)
                     break; // 重新选择
 
                 {
-                    auto r = Result(EratosthenesSieve(arg1));
+                    auto r = Result(EratosthenesSieve(arg1, arg2));
                     r.output();
-                    r.write();
+                    //r.write();
+                    verify(r.var);
                 }
-                //read();
 
                 cout << choose_mode_info;
                 break;
@@ -135,5 +140,6 @@ int main()
         } else
             cout << invalid_mode;
     }
+    inputFile.close();
     return 0;
 }
